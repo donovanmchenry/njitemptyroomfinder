@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NJIT Empty Room Finder</title>
+    <link rel="icon" type="image/png" href="/static/images/njitemptyroomfinderlogo.png">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #f5f5f5;
+            --bg-secondary: white;
+            --text-primary: #001F3F;
+            --text-secondary: #666;
+            --border-color: #e5e7eb;
+            --shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        body.dark-mode {
+            --bg-primary: #0a1929;
+            --bg-secondary: #001F3F;
+            --text-primary: #ffffff;
+            --text-secondary: #b0b8c1;
+            --border-color: #1e3a5f;
+            --shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: var(--bg-primary);
+            min-height: 100vh;
+            padding: 20px;
+            transition: background 0.3s ease;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            background: var(--bg-secondary);
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: var(--shadow);
+            position: relative;
+            transition: background 0.3s ease;
+        }
+
+        .header-logo {
+            max-width: 400px;
+            height: auto;
+            margin-bottom: 15px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            color: var(--text-secondary);
+            transition: color 0.3s ease;
+        }
+
+        .dark-mode-toggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 0.9em;
+            color: var(--text-primary);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+        }
+
+        .dark-mode-toggle:hover {
+            background: #CE0E2D;
+            color: white;
+            border-color: #CE0E2D;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(206, 14, 45, 0.3);
+        }
+
+        body.dark-mode .dark-mode-toggle:hover {
+            background: #ff4458;
+            border-color: #ff4458;
+            box-shadow: 0 4px 12px rgba(255, 68, 88, 0.4);
+        }
+
+        .search-card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: var(--shadow);
+            margin-bottom: 30px;
+            transition: background 0.3s ease;
+        }
+
+        .search-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            gap: 15px;
+            align-items: end;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+            font-size: 0.9em;
+            transition: color 0.3s ease;
+        }
+
+        select, input {
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 1em;
+            transition: all 0.2s;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+
+        select option {
+            background: white;
+            color: #333;
+        }
+
+        body.dark-mode select option {
+            background: #001F3F;
+            color: white;
+        }
+
+        select:focus, input:focus {
+            outline: none;
+            border-color: #001F3F;
+            box-shadow: 0 0 0 3px rgba(0, 31, 63, 0.1);
+        }
+
+        body.dark-mode select:focus, body.dark-mode input:focus {
+            border-color: #4a7ba7;
+            box-shadow: 0 0 0 3px rgba(74, 123, 167, 0.2);
+        }
+
+        .btn {
+            padding: 12px 30px;
+            background: #CE0E2D;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background: #b00c27;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(206, 14, 45, 0.3);
+        }
+
+        body.dark-mode .btn {
+            background: #ff4458;
+        }
+
+        body.dark-mode .btn:hover {
+            background: #ff6675;
+            box-shadow: 0 4px 12px rgba(255, 68, 88, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .results {
+            display: none;
+        }
+
+        .results.show {
+            display: block;
+        }
+
+        .summary {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow);
+            transition: background 0.3s ease;
+        }
+
+        .summary h2 {
+            color: var(--text-primary);
+            margin-bottom: 15px;
+            font-weight: 700;
+            transition: color 0.3s ease;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .stat-card {
+            background: #001F3F;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            border: 2px solid #001F3F;
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:nth-child(1) {
+            background: #001F3F;
+            border-color: #001F3F;
+        }
+
+        .stat-card:nth-child(2) {
+            background: var(--bg-secondary);
+            color: #001F3F;
+            border: 2px solid #001F3F;
+        }
+
+        body.dark-mode .stat-card:nth-child(2) {
+            background: #2d4a6e;
+            color: white;
+            border-color: #2d4a6e;
+        }
+
+        .stat-card:nth-child(3) {
+            background: var(--bg-secondary);
+            color: #CE0E2D;
+            border: 2px solid #CE0E2D;
+        }
+
+        body.dark-mode .stat-card:nth-child(3) {
+            background: #2d1f24;
+            color: #ff8a95;
+            border-color: #CE0E2D;
+        }
+
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            font-weight: 500;
+        }
+
+        .rooms-section {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: var(--shadow);
+            margin-bottom: 20px;
+            transition: background 0.3s ease;
+        }
+
+        .rooms-section h2 {
+            color: var(--text-primary);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 700;
+            transition: color 0.3s ease;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+
+        .badge.success {
+            background: #001F3F;
+            color: white;
+        }
+
+        body.dark-mode .badge.success {
+            background: #4a7ba7;
+            color: white;
+        }
+
+        .badge.danger {
+            background: #CE0E2D;
+            color: white;
+        }
+
+        body.dark-mode .badge.danger {
+            background: #ff4458;
+            color: white;
+        }
+
+        .room-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 15px;
+        }
+
+        .room-card {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            transition: all 0.2s;
+            cursor: pointer;
+            background: var(--bg-secondary);
+        }
+
+        .room-card:hover {
+            border-color: #CE0E2D;
+            box-shadow: 0 4px 12px rgba(206, 14, 45, 0.15);
+        }
+
+        body.dark-mode .room-card:hover {
+            box-shadow: 0 4px 12px rgba(206, 14, 45, 0.3);
+        }
+
+        .room-name {
+            font-size: 1.2em;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 10px;
+            transition: color 0.3s ease;
+        }
+
+        .room-info {
+            font-size: 0.9em;
+            color: var(--text-secondary);
+            transition: color 0.3s ease;
+        }
+
+        .room-info .label {
+            font-weight: 600;
+            color: var(--text-primary);
+            transition: color 0.3s ease;
+        }
+
+        .next-class {
+            margin-top: 10px;
+            padding: 10px;
+            background: #e8f0f7;
+            border-left: 3px solid #001F3F;
+            border-radius: 4px;
+            font-size: 0.85em;
+        }
+
+        body.dark-mode .next-class {
+            background: #1a3a52;
+            border-left-color: #4a7ba7;
+            color: #e3f2ff;
+        }
+
+        .current-class {
+            margin-top: 10px;
+            padding: 10px;
+            background: #fce8ea;
+            border-left: 3px solid #CE0E2D;
+            border-radius: 4px;
+            font-size: 0.85em;
+        }
+
+        body.dark-mode .current-class {
+            background: #2d1f24;
+            border-left-color: #ff4458;
+            color: #ffcdd2;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+            font-size: 1.2em;
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            transition: all 0.3s ease;
+        }
+
+        .error {
+            background: #fef2f2;
+            border: 1px solid #CE0E2D;
+            padding: 15px;
+            border-radius: 8px;
+            color: #CE0E2D;
+            margin-top: 15px;
+        }
+
+        body.dark-mode .error {
+            background: rgba(206, 14, 45, 0.2);
+        }
+
+        .room-free-text {
+            color: #001F3F;
+            font-weight: 600;
+        }
+
+        body.dark-mode .room-free-text {
+            color: #4a7ba7;
+        }
+
+        @media (max-width: 768px) {
+            .search-form {
+                grid-template-columns: 1fr;
+            }
+
+            .header-logo {
+                max-width: 280px;
+            }
+
+            .dark-mode-toggle {
+                position: static;
+                margin-bottom: 15px;
+                width: 100%;
+                justify-content: center;
+            }
+
+            .room-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <button class="dark-mode-toggle" id="darkModeToggle">
+                <span id="darkModeIcon">🌙</span>
+                <span id="darkModeText">Dark Mode</span>
+            </button>
+            <img src="/static/images/njitemptyroomfinderlogo.png" alt="NJIT Empty Room Finder" class="header-logo">
+            <p>Find available classrooms at New Jersey Institute of Technology</p>
+        </div>
+
+        <div class="search-card">
+            <form id="searchForm" class="search-form">
+                <div class="form-group">
+                    <label for="daySelect">Day of Week</label>
+                    <select id="daySelect" required>
+                        <option value="">Select a day</option>
+                        <option value="Monday">Monday</option>
+                        <option value="Tuesday">Tuesday</option>
+                        <option value="Wednesday">Wednesday</option>
+                        <option value="Thursday">Thursday</option>
+                        <option value="Friday">Friday</option>
+                        <option value="Saturday">Saturday</option>
+                        <option value="Sunday">Sunday</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="timeInput">Time</label>
+                    <input type="time" id="timeInput" required>
+                </div>
+
+                <button type="submit" class="btn">Find Rooms</button>
+            </form>
+        </div>
+
+        <div id="loading" class="loading" style="display: none;">
+            Searching for available rooms...
+        </div>
+
+        <div id="error" class="error" style="display: none;"></div>
+
+        <div id="results" class="results">
+            <div class="summary">
+                <h2>Summary</h2>
+                <div class="stats">
+                    <div class="stat-card">
+                        <div class="stat-number" id="totalRooms">0</div>
+                        <div class="stat-label">Total Rooms</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="availableRooms">0</div>
+                        <div class="stat-label">Available</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="occupiedRooms">0</div>
+                        <div class="stat-label">Occupied</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="availableSection" class="rooms-section">
+                <h2>
+                    <span>Available Rooms</span>
+                    <span class="badge success" id="availableBadge">0</span>
+                </h2>
+                <div id="availableGrid" class="room-grid"></div>
+            </div>
+
+            <div id="occupiedSection" class="rooms-section" style="display: none;">
+                <h2>
+                    <span>Occupied Rooms</span>
+                    <span class="badge danger" id="occupiedBadge">0</span>
+                </h2>
+                <div id="occupiedGrid" class="room-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Dark Mode Toggle
+        const darkModeToggle = document.getElementById('darkModeToggle');
+        const darkModeIcon = document.getElementById('darkModeIcon');
+        const darkModeText = document.getElementById('darkModeText');
+        const body = document.body;
+
+        // Check for saved dark mode preference
+        const isDarkMode = localStorage.getItem('darkMode') === 'true';
+        if (isDarkMode) {
+            body.classList.add('dark-mode');
+            darkModeIcon.textContent = '☀️';
+            darkModeText.textContent = 'Light Mode';
+        }
+
+        darkModeToggle.addEventListener('click', () => {
+            body.classList.toggle('dark-mode');
+            const isDark = body.classList.contains('dark-mode');
+
+            // Update button
+            darkModeIcon.textContent = isDark ? '☀️' : '🌙';
+            darkModeText.textContent = isDark ? 'Light Mode' : 'Dark Mode';
+
+            // Save preference
+            localStorage.setItem('darkMode', isDark);
+        });
+
+        const form = document.getElementById('searchForm');
+        const results = document.getElementById('results');
+        const loading = document.getElementById('loading');
+        const error = document.getElementById('error');
+
+        // Set default time to current time
+        const now = new Date();
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        document.getElementById('timeInput').value = `${hours}:${minutes}`;
+
+        // Set default day to current day
+        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const currentDay = days[now.getDay()];
+        document.getElementById('daySelect').value = currentDay;
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const day = document.getElementById('daySelect').value;
+            const time = document.getElementById('timeInput').value;
+
+            if (!day || !time) {
+                showError('Please select both day and time');
+                return;
+            }
+
+            loading.style.display = 'block';
+            results.classList.remove('show');
+            error.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/available-rooms', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ day, time })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to fetch data');
+                }
+
+                const data = await response.json();
+                displayResults(data);
+
+            } catch (err) {
+                showError('Error fetching room data. Please try again.');
+                console.error(err);
+            } finally {
+                loading.style.display = 'none';
+            }
+        });
+
+        function displayResults(data) {
+            // Update summary stats
+            document.getElementById('totalRooms').textContent = data.summary.total_rooms;
+            document.getElementById('availableRooms').textContent = data.summary.available;
+            document.getElementById('occupiedRooms').textContent = data.summary.occupied;
+
+            // Update badges
+            document.getElementById('availableBadge').textContent = data.summary.available;
+            document.getElementById('occupiedBadge').textContent = data.summary.occupied;
+
+            // Display available rooms
+            const availableGrid = document.getElementById('availableGrid');
+            availableGrid.innerHTML = '';
+
+            if (data.available_rooms.length === 0) {
+                availableGrid.innerHTML = '<p style="color: #666;">No rooms available at this time.</p>';
+            } else {
+                data.available_rooms.forEach(room => {
+                    const card = createRoomCard(room, true);
+                    availableGrid.appendChild(card);
+                });
+            }
+
+            // Display occupied rooms
+            const occupiedGrid = document.getElementById('occupiedGrid');
+            const occupiedSection = document.getElementById('occupiedSection');
+            occupiedGrid.innerHTML = '';
+
+            if (data.occupied_rooms.length > 0) {
+                occupiedSection.style.display = 'block';
+                data.occupied_rooms.forEach(room => {
+                    const card = createRoomCard(room, false);
+                    occupiedGrid.appendChild(card);
+                });
+            } else {
+                occupiedSection.style.display = 'none';
+            }
+
+            results.classList.add('show');
+        }
+
+        function createRoomCard(room, isAvailable) {
+            const card = document.createElement('div');
+            card.className = 'room-card';
+
+            const roomName = document.createElement('div');
+            roomName.className = 'room-name';
+            roomName.textContent = room.room;
+            card.appendChild(roomName);
+
+            if (isAvailable) {
+                if (room.next_class) {
+                    const nextClass = document.createElement('div');
+                    nextClass.className = 'next-class';
+                    nextClass.innerHTML = `
+                        <div style="font-weight: 600; margin-bottom: 5px;">Next Class:</div>
+                        <div>${room.next_class.course}</div>
+                        <div style="margin-top: 5px;">
+                            <strong>${room.next_class.start_time}</strong> - ${room.next_class.end_time}
+                        </div>
+                    `;
+                    card.appendChild(nextClass);
+                } else {
+                    const info = document.createElement('div');
+                    info.className = 'room-info';
+                    info.innerHTML = '<div class="room-free-text">✓ Free for the rest of the day</div>';
+                    card.appendChild(info);
+                }
+            } else {
+                const currentClass = document.createElement('div');
+                currentClass.className = 'current-class';
+                currentClass.innerHTML = `
+                    <div style="font-weight: 600; margin-bottom: 5px;">Current Class:</div>
+                    <div>${room.current_class.course}</div>
+                    <div style="margin-top: 5px;">
+                        <strong>${room.current_class.start_time}</strong> - ${room.current_class.end_time}
+                    </div>
+                `;
+                card.appendChild(currentClass);
+            }
+
+            return card;
+        }
+
+        function showError(message) {
+            error.textContent = message;
+            error.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
