@@ -2,6 +2,8 @@
 
 A web application that helps you find available classrooms at your school at any given time. Simply enter a day and time, and the app will show you all empty rooms, along with information about when they'll be occupied next.
 
+**Live Demo:** https://njitemptyroomfinder.onrender.com/
+
 ## Features
 
 - **Real-time Room Availability**: Find empty rooms instantly by selecting a day and time
