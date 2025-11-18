@@ -7,6 +7,7 @@ from flask import Flask, jsonify, request, render_template
 from flask_cors import CORS
 from datetime import datetime, time
 import json
+import os
 from typing import List, Dict
 
 app = Flask(__name__)
@@ -181,7 +182,12 @@ if __name__ == '__main__':
     print("Starting Empty Room Finder API...")
     print(f"Loaded {len(SCHEDULE_DATA['room_list'])} rooms")
     print(f"Loaded {len(SCHEDULE_DATA['courses'])} courses")
+
+    # Use PORT environment variable for production (e.g., Render)
+    # Fall back to 5001 for local development
+    port = int(os.environ.get('PORT', 5001))
+
     print("\n" + "="*50)
-    print("Access the app at: http://localhost:5001")
+    print(f"Access the app at: http://localhost:{port}")
     print("="*50 + "\n")
-    app.run(debug=True, host='0.0.0.0', port=5001)
+    app.run(debug=True, host='0.0.0.0', port=port)
