@@ -113,7 +113,7 @@
 
         .search-form {
             display: grid;
-            grid-template-columns: 1fr 1fr auto;
+            grid-template-columns: 1fr 1fr 1fr auto;
             gap: 15px;
             align-items: end;
         }
@@ -419,6 +419,13 @@
                     <input type="time" id="timeInput" required>
                 </div>
 
+                <div class="form-group">
+                    <label for="buildingSelect">Building (Optional)</label>
+                    <select id="buildingSelect">
+                        <option value="">All Buildings</option>
+                    </select>
+                </div>
+
                 <button type="submit" class="btn">Find Rooms</button>
             </form>
         </div>
@@ -509,11 +516,33 @@
         const currentDay = days[now.getDay()];
         document.getElementById('daySelect').value = currentDay;
 
+        // Load buildings list
+        async function loadBuildings() {
+            try {
+                const response = await fetch('/api/buildings');
+                const data = await response.json();
+                const buildingSelect = document.getElementById('buildingSelect');
+
+                data.buildings.forEach(building => {
+                    const option = document.createElement('option');
+                    option.value = building;
+                    option.textContent = building;
+                    buildingSelect.appendChild(option);
+                });
+            } catch (err) {
+                console.error('Error loading buildings:', err);
+            }
+        }
+
+        // Load buildings on page load
+        loadBuildings();
+
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
 
             const day = document.getElementById('daySelect').value;
             const time = document.getElementById('timeInput').value;
+            const building = document.getElementById('buildingSelect').value;
 
             if (!day || !time) {
                 showError('Please select both day and time');
@@ -525,12 +554,17 @@
             error.style.display = 'none';
 
             try {
+                const requestBody = { day, time };
+                if (building) {
+                    requestBody.building = building;
+                }
+
                 const response = await fetch('/api/available-rooms', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ day, time })
+                    body: JSON.stringify(requestBody)
                 });
 
                 if (!response.ok) {

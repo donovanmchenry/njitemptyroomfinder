@@ -80,6 +80,18 @@ def get_all_rooms():
     })
 
 
+@app.route('/api/buildings', methods=['GET'])
+def get_all_buildings():
+    """Get list of all unique building codes"""
+    buildings = sorted(set(
+        room.split()[0] for room in SCHEDULE_DATA['room_list'] if ' ' in room
+    ))
+    return jsonify({
+        'buildings': buildings,
+        'total': len(buildings)
+    })
+
+
 @app.route('/api/available-rooms', methods=['POST'])
 def get_available_rooms():
     """
@@ -88,7 +100,8 @@ def get_available_rooms():
     Expected JSON body:
     {
         "day": "Monday",
-        "time": "18:00"  # 24-hour format HH:MM
+        "time": "18:00",  # 24-hour format HH:MM
+        "building": "CKB"  # optional building filter
     }
     """
     data = request.get_json()
@@ -98,6 +111,7 @@ def get_available_rooms():
 
     day = data['day']
     check_time = data['time']
+    building_filter = data.get('building', '')  # Optional building filter
 
     # Validate day
     valid_days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
@@ -112,8 +126,15 @@ def get_available_rooms():
 
     available_rooms = []
     occupied_rooms = []
+    total_rooms_count = len(SCHEDULE_DATA['room_list'])
 
     for room, schedule in SCHEDULE_DATA['rooms'].items():
+        # Apply building filter if specified
+        if building_filter:
+            room_building = room.split()[0] if ' ' in room else ''
+            if room_building != building_filter:
+                continue
+
         is_occupied, occupying_course = is_room_occupied(schedule, day, check_time)
 
         if is_occupied:
@@ -132,13 +153,18 @@ def get_available_rooms():
     available_rooms.sort(key=lambda x: x['room'])
     occupied_rooms.sort(key=lambda x: x['room'])
 
+    # Update total_rooms_count if building filter is applied
+    if building_filter:
+        total_rooms_count = len(available_rooms) + len(occupied_rooms)
+
     return jsonify({
         'day': day,
         'time': check_time,
+        'building': building_filter,
         'available_rooms': available_rooms,
         'occupied_rooms': occupied_rooms,
         'summary': {
-            'total_rooms': len(SCHEDULE_DATA['room_list']),
+            'total_rooms': total_rooms_count,
             'available': len(available_rooms),
             'occupied': len(occupied_rooms)
         }
