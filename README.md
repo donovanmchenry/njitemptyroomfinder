@@ -1,257 +1,92 @@
-# Empty Room Finder
+# NJIT Empty Room Finder
 
-A web application that helps you find available classrooms at your school at any given time. Simply enter a day and time, and the app will show you all empty rooms, along with information about when they'll be occupied next.
+A fast, schedule-based tool for finding NJIT classrooms that stay free for the full time you need.
 
-## Features
+The app uses the current Schedule Pro course export, keeps one semester in its generated dataset, and distinguishes rooms that are occupied now from rooms with a class starting during the requested window.
 
-- **Real-time Room Availability**: Find empty rooms instantly by selecting a day and time
-- **Next Class Information**: See when the next class is scheduled in each available room
-- **Comprehensive Data**: Tracks 184 unique rooms and 2,210 courses
-- **User-Friendly Interface**: Modern, responsive web interface with intuitive design
-- **Detailed Statistics**: View summary stats showing total, available, and occupied rooms
-- **Room Schedules**: Each room card shows upcoming classes and current occupancy
+## What it does
 
-## Project Structure
+- Checks availability for a selected day, start time, and duration
+- Filters by building or room name
+- Shows occupied rooms and rooms whose next class starts too soon
+- Opens a room's full weekly class schedule
+- Defaults to dark mode and adapts to desktop and mobile screens
+- Refreshes its committed schedule data from Schedule Pro every four hours
 
-```
-emptyroom/
-├── classes/                    # CSV files with course schedules
-├── templates/
-│   └── index.html             # Frontend interface
-├── app.py                     # Flask backend API
-├── parse_schedules.py         # CSV parser script
-├── schedule_data.json         # Parsed schedule data
-├── requirements.txt           # Python dependencies
-├── start.sh                   # Startup script
-└── README.md                  # This file
-```
+Availability is based on the published course schedule. Campus events, closures, reservations, and last-minute changes may not appear.
 
-## Installation
+## Local setup
 
-### Prerequisites
+Requires Python 3.11 or newer.
 
-- Python 3.7+
-- pip
-
-### Setup
-
-1. Clone or navigate to the project directory:
 ```bash
-cd emptyroom
-```
-
-2. Create a virtual environment:
-```bash
-python3 -m venv venv
-```
-
-3. Activate the virtual environment:
-```bash
-source venv/bin/activate
-```
-
-4. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
-
-## Usage
-
-### Quick Start
-
-Use the provided start script:
-```bash
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -r requirements-dev.txt
 ./start.sh
 ```
 
-This will:
-1. Activate the virtual environment
-2. Parse the CSV files if needed
-3. Start the web server on http://localhost:5000
+Open `http://127.0.0.1:5001`.
 
-### Manual Start
+The repository includes `data/schedule_data.json`, so a fresh checkout starts without a separate data build.
 
-1. Parse the course schedules (if not already done):
+## Refresh schedule data
+
+Point the builder at a checkout of Schedule Pro:
+
 ```bash
-python3 parse_schedules.py
+python build_schedule_data.py \
+  --source ../njitschedulepro/courseschedules \
+  --output data/schedule_data.json
 ```
 
-2. Start the Flask application:
-```bash
-python3 app.py
-```
+The builder selects the highest NJIT Banner term code by default. To build a specific term, pass `--term 202690`.
 
-3. Open your browser and go to:
-```
-http://localhost:5001
-```
+The scheduled GitHub Actions workflow clones Schedule Pro, rebuilds the artifact, and commits only when the source data changed.
 
-### Using the Application
+## API
 
-1. **Select a Day**: Choose the day of the week you want to check
-2. **Select a Time**: Enter the time you want to find available rooms (24-hour format)
-3. **Click "Find Rooms"**: View all available and occupied rooms
+### `GET /health`
 
-The app will show you:
-- Total number of rooms
-- Number of available rooms
-- Number of occupied rooms
-- Details for each available room including when the next class starts
-- Details for occupied rooms showing the current class
+Returns service health, active term, and room count.
 
-## API Endpoints
+### `GET /api/meta`
 
-### `GET /`
-Serves the main web interface
+Returns dataset term, provenance, source update time, and room/building totals.
 
-### `GET /api/rooms`
-Returns a list of all rooms
+### `GET /api/buildings`
 
-**Response:**
-```json
-{
-  "rooms": ["CKB 114", "FMH 307", ...],
-  "total": 184
-}
-```
+Returns building codes and room counts.
 
 ### `POST /api/available-rooms`
-Find available rooms for a given day and time
 
-**Request Body:**
+Example request:
+
 ```json
 {
   "day": "Monday",
-  "time": "18:00"
+  "time": "13:00",
+  "duration_minutes": 60,
+  "building": "CKB",
+  "query": "214",
+  "sort": "longest"
 }
 ```
 
-**Response:**
-```json
-{
-  "day": "Monday",
-  "time": "18:00",
-  "available_rooms": [
-    {
-      "room": "CKB 114",
-      "next_class": {
-        "day": "Monday",
-        "start_time": "20:00",
-        "end_time": "21:30",
-        "course": "COM312 - EFFECTIVE COMMUNICATION",
-        "section": "101"
-      }
-    }
-  ],
-  "occupied_rooms": [...],
-  "summary": {
-    "total_rooms": 184,
-    "available": 150,
-    "occupied": 34
-  }
-}
-```
+`duration_minutes` must be between 15 and 480. Sort values are `longest`, `soonest`, and `room`.
 
 ### `GET /api/room/<room_name>`
-Get the full schedule for a specific room
 
-**Response:**
-```json
-{
-  "room": "FMH 307",
-  "schedule": {
-    "Monday": [
-      {
-        "day": "Monday",
-        "start_time": "08:30",
-        "end_time": "09:50",
-        "course": "COM230 - INTRODUCTION TO FILM",
-        "section": "001"
-      }
-    ],
-    "Tuesday": [...],
-    ...
-  }
-}
+Returns the room's class meetings grouped by day.
+
+## Tests
+
+```bash
+pytest -q
 ```
 
-## Data Format
+The suite covers parsing, term selection, reproducible generation, conflict boundaries, duration handling, filters, API validation, cache behavior, and response security headers.
 
-### Input CSV Files
+## Deployment
 
-The application expects CSV files in the `classes/` directory with the following columns:
-- Term
-- Course
-- Title
-- Section
-- CRN
-- Days (e.g., "MW", "TR", "WF")
-- Times (e.g., "8:30 AM - 9:50 AM")
-- Location (room number)
-- Status
-- Max
-- Now
-- Instructor
-- Delivery Mode
-- Credits
-- Info
-- Comments
-
-### Day Codes
-
-- M = Monday
-- T = Tuesday
-- W = Wednesday
-- R = Thursday
-- F = Friday
-- S = Saturday
-- U = Sunday
-
-## Features in Detail
-
-### Available Rooms Display
-- Shows all rooms that are currently empty
-- Displays the next scheduled class for each room
-- Shows "Free for the rest of the day" if no more classes are scheduled
-
-### Occupied Rooms Display
-- Lists all currently occupied rooms
-- Shows the current class information
-- Displays start and end times
-
-### Smart Parsing
-- Automatically skips cancelled courses
-- Filters out online courses (no physical room needed)
-- Handles TBA times and locations gracefully
-
-## Technologies Used
-
-- **Backend**: Flask (Python)
-- **Frontend**: HTML, CSS, JavaScript (Vanilla)
-- **Data Processing**: Python CSV module
-- **API**: RESTful JSON API
-
-## Example Use Cases
-
-1. **Finding a Study Space**: Check if there's an empty classroom to study during your break
-2. **Meeting Planning**: Find available rooms for group meetings
-3. **Event Planning**: Locate rooms for events or activities
-4. **Campus Navigation**: See which areas of campus are busy at different times
-
-## Notes
-
-- The app runs in debug mode by default (for development)
-- Data is loaded from `schedule_data.json` on startup
-- Times are in 24-hour format (e.g., 18:00 for 6:00 PM)
-- The app automatically defaults to the current day and time
-
-## Future Enhancements
-
-Potential features to add:
-- Filter rooms by building
-- Filter by room capacity
-- Save favorite rooms
-- Week view showing room availability across multiple days
-- Email/SMS notifications for when rooms become available
-- Mobile app version
-- Integration with campus calendar systems
+`render.yaml` and `start.sh` provide a production Gunicorn setup with a health check. The generated data is loaded once per worker at startup, so normal room searches do not read CSV files or call an upstream service.

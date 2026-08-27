@@ -1,19 +1,13 @@
-#!/bin/bash
-# Start script for Empty Room Finder
+#!/bin/sh
+set -eu
 
-echo "Starting Empty Room Finder..."
-echo ""
-
-# Activate virtual environment
-source venv/bin/activate
-
-# Check if schedule_data.json exists
-if [ ! -f "schedule_data.json" ]; then
-    echo "Schedule data not found. Running parser..."
-    python3 parse_schedules.py
-    echo ""
+if [ ! -f data/schedule_data.json ]; then
+    echo "Missing data/schedule_data.json. Run build_schedule_data.py with a schedule source first." >&2
+    exit 1
 fi
 
-# Start Flask app
-echo "Starting web server on http://localhost:5001"
-python3 app.py
+exec gunicorn app:app \
+    --bind "0.0.0.0:${PORT:-5001}" \
+    --workers "${WEB_CONCURRENCY:-2}" \
+    --threads "${WEB_THREADS:-4}" \
+    --timeout 30

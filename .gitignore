@@ -1,10 +1,12 @@
 # Virtual Environment
 venv/
+.venv/
 env/
 ENV/
 
 # Python
 __pycache__/
+.pytest_cache/
 *.py[cod]
 *$py.class
 *.so
@@ -13,9 +15,6 @@ __pycache__/
 # Flask
 instance/
 .webassets-cache
-
-# Data files
-schedule_data.json
 
 # IDE
 .vscode/

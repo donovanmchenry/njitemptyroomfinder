@@ -1,0 +1,8 @@
+services:
+  - type: web
+    name: njit-empty-room-finder
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: ./start.sh
+    healthCheckPath: /health
+    autoDeploy: true

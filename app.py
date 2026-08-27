@@ -1,213 +1,160 @@
-#!/usr/bin/env python3
-"""
-Flask API for finding empty rooms
-"""
+"""Flask application for finding empty NJIT rooms."""
 
-from flask import Flask, jsonify, request, render_template
-from flask_cors import CORS
-from datetime import datetime, time
-import json
-from typing import List, Dict
+from __future__ import annotations
 
-app = Flask(__name__)
-CORS(app)
+import os
+from pathlib import Path
+from typing import Any
 
-# Load schedule data
-with open('schedule_data.json', 'r') as f:
-    SCHEDULE_DATA = json.load(f)
+from flask import Flask, jsonify, render_template, request
 
-
-def time_str_to_minutes(time_str: str) -> int:
-    """Convert time string 'HH:MM' to minutes since midnight"""
-    hours, minutes = map(int, time_str.split(':'))
-    return hours * 60 + minutes
+from room_data import (
+    DAYS,
+    ScheduleDataError,
+    find_room_availability,
+    load_schedule_dataset,
+    parse_clock,
+    room_schedule_by_day,
+)
 
 
-def is_room_occupied(room_schedule: List[Dict], day: str, check_time: str) -> tuple[bool, Dict | None]:
-    """
-    Check if a room is occupied at the given day and time
-    Returns (is_occupied, occupying_course_info)
-    """
-    check_minutes = time_str_to_minutes(check_time)
-
-    for slot in room_schedule:
-        if slot['day'] != day:
-            continue
-
-        start_minutes = time_str_to_minutes(slot['start_time'])
-        end_minutes = time_str_to_minutes(slot['end_time'])
-
-        # Check if the time falls within this slot
-        if start_minutes <= check_minutes < end_minutes:
-            return True, slot
-
-    return False, None
+ROOT = Path(__file__).resolve().parent
+DEFAULT_DATA_PATH = ROOT / "data" / "schedule_data.json"
+VALID_SORTS = {"longest", "soonest", "room"}
 
 
-def find_next_class(room_schedule: List[Dict], day: str, check_time: str) -> Dict | None:
-    """Find the next class in this room after the given time"""
-    check_minutes = time_str_to_minutes(check_time)
-    next_class = None
-    min_diff = float('inf')
-
-    for slot in room_schedule:
-        if slot['day'] != day:
-            continue
-
-        start_minutes = time_str_to_minutes(slot['start_time'])
-
-        if start_minutes > check_minutes:
-            diff = start_minutes - check_minutes
-            if diff < min_diff:
-                min_diff = diff
-                next_class = slot
-
-    return next_class
+def _error(message: str, status: int = 400):
+    return jsonify({"error": message}), status
 
 
-@app.route('/')
-def index():
-    """Serve the main page"""
-    return render_template('index.html')
+def create_app(data_path: str | Path | None = None) -> Flask:
+    app = Flask(__name__)
+    app.config["MAX_CONTENT_LENGTH"] = 16 * 1024
+    resolved_data_path = Path(
+        data_path or os.getenv("SCHEDULE_DATA_FILE", str(DEFAULT_DATA_PATH))
+    )
+    dataset = load_schedule_dataset(resolved_data_path)
+    app.config["SCHEDULE_DATA"] = dataset
+
+    @app.after_request
+    def set_security_headers(response):
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; style-src 'self'; script-src 'self'; "
+            "img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'"
+        )
+        return response
+
+    @app.get("/")
+    def index():
+        return render_template("index.html")
+
+    @app.get("/health")
+    def health():
+        return jsonify(
+            {
+                "status": "healthy",
+                "term": dataset["metadata"]["term"],
+                "rooms": len(dataset["room_list"]),
+            }
+        )
+
+    @app.get("/api/meta")
+    def get_meta():
+        response = jsonify(
+            {
+                "metadata": dataset["metadata"],
+                "room_count": len(dataset["room_list"]),
+                "building_count": len(dataset["buildings"]),
+            }
+        )
+        response.headers["Cache-Control"] = "public, max-age=300"
+        return response
+
+    @app.get("/api/rooms")
+    def get_rooms():
+        response = jsonify({"rooms": dataset["room_list"], "total": len(dataset["room_list"])})
+        response.headers["Cache-Control"] = "public, max-age=300"
+        return response
+
+    @app.get("/api/buildings")
+    def get_buildings():
+        response = jsonify(
+            {"buildings": dataset["buildings"], "total": len(dataset["buildings"])}
+        )
+        response.headers["Cache-Control"] = "public, max-age=300"
+        return response
+
+    @app.post("/api/available-rooms")
+    def get_available_rooms():
+        payload: dict[str, Any] | None = request.get_json(silent=True)
+        if not isinstance(payload, dict) or not payload:
+            return _error("Send a JSON body with day and time")
+
+        day = payload.get("day")
+        if day not in DAYS:
+            return _error("Choose a valid day of the week")
+        try:
+            start_min = parse_clock(payload.get("time", ""))
+            duration = int(payload.get("duration_minutes", 60))
+        except (TypeError, ValueError) as exc:
+            return _error(str(exc) if str(exc) else "Choose a valid duration")
+        if duration < 15 or duration > 480:
+            return _error("Duration must be between 15 minutes and 8 hours")
+
+        building = str(payload.get("building", ""))
+        valid_buildings = {item["code"] for item in dataset["buildings"]}
+        if building and building.upper() not in valid_buildings:
+            return _error("Choose a valid building")
+        sort = str(payload.get("sort", "longest"))
+        if sort not in VALID_SORTS:
+            return _error("Choose a valid sort order")
+
+        try:
+            result = find_room_availability(
+                dataset,
+                day=day,
+                start_min=start_min,
+                duration_minutes=duration,
+                building=building,
+                query=str(payload.get("query", "")),
+                sort=sort,
+            )
+        except ValueError as exc:
+            return _error(str(exc))
+        response = jsonify(result)
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
+    @app.get("/api/room/<path:room_name>")
+    def get_room_schedule(room_name: str):
+        normalized_name = " ".join(room_name.upper().split())
+        room = dataset["rooms"].get(normalized_name)
+        if not room:
+            return _error("Room not found", 404)
+        return jsonify(
+            {
+                "room": normalized_name,
+                "building": room["building"],
+                "schedule": room_schedule_by_day(room),
+            }
+        )
+
+    return app
 
 
-@app.route('/api/rooms', methods=['GET'])
-def get_all_rooms():
-    """Get list of all rooms"""
-    return jsonify({
-        'rooms': SCHEDULE_DATA['room_list'],
-        'total': len(SCHEDULE_DATA['room_list'])
-    })
+try:
+    app = create_app()
+except ScheduleDataError as exc:
+    raise RuntimeError(str(exc)) from exc
 
 
-@app.route('/api/buildings', methods=['GET'])
-def get_all_buildings():
-    """Get list of all unique building codes"""
-    buildings = sorted(set(
-        room.split()[0] for room in SCHEDULE_DATA['room_list'] if ' ' in room
-    ))
-    return jsonify({
-        'buildings': buildings,
-        'total': len(buildings)
-    })
-
-
-@app.route('/api/available-rooms', methods=['POST'])
-def get_available_rooms():
-    """
-    Find available rooms for a given day and time
-
-    Expected JSON body:
-    {
-        "day": "Monday",
-        "time": "18:00",  # 24-hour format HH:MM
-        "building": "CKB"  # optional building filter
-    }
-    """
-    data = request.get_json()
-
-    if not data or 'day' not in data or 'time' not in data:
-        return jsonify({'error': 'Missing day or time parameter'}), 400
-
-    day = data['day']
-    check_time = data['time']
-    building_filter = data.get('building', '')  # Optional building filter
-
-    # Validate day
-    valid_days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-    if day not in valid_days:
-        return jsonify({'error': f'Invalid day. Must be one of {valid_days}'}), 400
-
-    # Validate time format
-    try:
-        time_str_to_minutes(check_time)
-    except (ValueError, AttributeError):
-        return jsonify({'error': 'Invalid time format. Use HH:MM in 24-hour format'}), 400
-
-    available_rooms = []
-    occupied_rooms = []
-    total_rooms_count = len(SCHEDULE_DATA['room_list'])
-
-    for room, schedule in SCHEDULE_DATA['rooms'].items():
-        # Apply building filter if specified
-        if building_filter:
-            room_building = room.split()[0] if ' ' in room else ''
-            if room_building != building_filter:
-                continue
-
-        is_occupied, occupying_course = is_room_occupied(schedule, day, check_time)
-
-        if is_occupied:
-            occupied_rooms.append({
-                'room': room,
-                'current_class': occupying_course
-            })
-        else:
-            next_class = find_next_class(schedule, day, check_time)
-            available_rooms.append({
-                'room': room,
-                'next_class': next_class
-            })
-
-    # Sort available rooms alphabetically
-    available_rooms.sort(key=lambda x: x['room'])
-    occupied_rooms.sort(key=lambda x: x['room'])
-
-    # Update total_rooms_count if building filter is applied
-    if building_filter:
-        total_rooms_count = len(available_rooms) + len(occupied_rooms)
-
-    return jsonify({
-        'day': day,
-        'time': check_time,
-        'building': building_filter,
-        'available_rooms': available_rooms,
-        'occupied_rooms': occupied_rooms,
-        'summary': {
-            'total_rooms': total_rooms_count,
-            'available': len(available_rooms),
-            'occupied': len(occupied_rooms)
-        }
-    })
-
-
-@app.route('/api/room/<room_name>', methods=['GET'])
-def get_room_schedule(room_name):
-    """Get the full schedule for a specific room"""
-    if room_name not in SCHEDULE_DATA['rooms']:
-        return jsonify({'error': 'Room not found'}), 404
-
-    schedule = SCHEDULE_DATA['rooms'][room_name]
-
-    # Organize by day
-    by_day = {
-        'Monday': [],
-        'Tuesday': [],
-        'Wednesday': [],
-        'Thursday': [],
-        'Friday': [],
-        'Saturday': [],
-        'Sunday': []
-    }
-
-    for slot in schedule:
-        by_day[slot['day']].append(slot)
-
-    # Sort each day by start time
-    for day in by_day:
-        by_day[day].sort(key=lambda x: x['start_time'])
-
-    return jsonify({
-        'room': room_name,
-        'schedule': by_day
-    })
-
-
-if __name__ == '__main__':
-    print("Starting Empty Room Finder API...")
-    print(f"Loaded {len(SCHEDULE_DATA['room_list'])} rooms")
-    print(f"Loaded {len(SCHEDULE_DATA['courses'])} courses")
-    print("\n" + "="*50)
-    print("Access the app at: http://localhost:5001")
-    print("="*50 + "\n")
-    app.run(debug=True, host='0.0.0.0', port=5001)
+if __name__ == "__main__":
+    metadata = app.config["SCHEDULE_DATA"]["metadata"]
+    print(f"NJIT Empty Room Finder: {metadata['term_name']}")
+    app.run(
+        debug=os.getenv("FLASK_DEBUG", "").lower() in {"1", "true"},
+        host="0.0.0.0",
+        port=int(os.getenv("PORT", "5001")),
+    )

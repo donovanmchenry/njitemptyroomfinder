@@ -1,675 +1,170 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Find NJIT classrooms that are free for the time you need.">
     <title>NJIT Empty Room Finder</title>
     <link rel="icon" type="image/png" href="/static/images/njitemptyroomfinderlogo.png">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        :root {
-            /* Tailwind colors translated to hex */
-            --bg-gradient-from: #eff6ff; /* blue-50 */
-            --bg-gradient-to: #e0e7ff; /* indigo-100 */
-            --card-bg: #ffffff; /* white */
-            --foreground: #030712; /* gray-950 */
-            --secondary-bg: #f9fafb; /* gray-50 */
-            --border: #e5e7eb; /* gray-200 */
-            --muted-foreground: #6b7280; /* gray-500 */
-            --primary: #3b82f6; /* blue-500 */
-            --primary-foreground: #ffffff;
-            --njit-red: #d32f2f;
-            --destructive: #ef4444; /* red-500 */
-            --radius: 0.5rem;
-        }
-
-        body.dark-mode {
-            /* Tailwind dark mode colors */
-            --bg-gradient-from: #111827; /* gray-900 */
-            --bg-gradient-to: #1f2937; /* gray-800 */
-            --card-bg: #1f2937; /* gray-800 */
-            --foreground: #f9fafb; /* gray-50 */
-            --secondary-bg: #374151; /* gray-700 */
-            --border: #374151; /* gray-700 */
-            --muted-foreground: #9ca3af; /* gray-400 */
-            --primary: #60a5fa; /* blue-400 */
-            --primary-foreground: #ffffff; /* white */
-            --destructive: #f87171; /* red-400 */
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(to bottom right, var(--bg-gradient-from), var(--bg-gradient-to));
-            color: var(--foreground);
-            min-height: 100vh;
-            padding: 20px;
-            transition: background 0.3s ease, color 0.3s ease;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .header {
-            text-align: center;
-            background: var(--card-bg);
-            padding: 30px;
-            border-radius: var(--radius);
-            margin-bottom: 30px;
-            border: 1px solid var(--border);
-            position: relative;
-            transition: all 0.3s ease;
-        }
-
-        .header-logo {
-            max-width: 400px;
-            height: auto;
-            margin-bottom: 15px;
-        }
-
-        .header p {
-            font-size: 1.1em;
-            color: var(--muted-foreground);
-            transition: color 0.3s ease;
-        }
-
-        .dark-mode-toggle {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: var(--secondary-bg);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 8px 16px;
-            cursor: pointer;
-            font-size: 0.9em;
-            color: var(--foreground);
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-weight: 500;
-        }
-
-        .dark-mode-toggle:hover {
-            background: var(--secondary-bg);
-            color: var(--foreground);
-        }
-
-        .search-card {
-            background: var(--card-bg);
-            border-radius: var(--radius);
-            padding: 30px;
-            border: 1px solid var(--border);
-            margin-bottom: 30px;
-            transition: all 0.3s ease;
-        }
-
-        .search-form {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr auto;
-            gap: 15px;
-            align-items: end;
-        }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
-        }
-
-        label {
-            font-weight: 500;
-            margin-bottom: 8px;
-            color: var(--foreground);
-            font-size: 0.9em;
-            transition: color 0.3s ease;
-        }
-
-        select, input {
-            padding: 12px;
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            font-size: 1em;
-            transition: all 0.2s;
-            background: var(--secondary-bg);
-            color: var(--foreground);
-        }
-
-        select option {
-            background: var(--card-bg);
-            color: var(--foreground);
-        }
-
-        select:focus, input:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
-        }
-
-        .btn {
-            padding: 12px 30px;
-            background: var(--primary);
-            color: var(--primary-foreground);
-            border: none;
-            border-radius: var(--radius);
-            font-size: 1em;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .btn:hover {
-            opacity: 0.9;
-        }
-
-        .btn:active {
-            transform: scale(0.98);
-        }
-
-        .results {
-            display: none;
-        }
-
-        .results.show {
-            display: block;
-        }
-
-        .summary {
-            background: var(--card-bg);
-            border-radius: var(--radius);
-            padding: 25px;
-            margin-bottom: 20px;
-            border: 1px solid var(--border);
-            transition: all 0.3s ease;
-        }
-
-        .summary h2 {
-            color: var(--foreground);
-            margin-bottom: 15px;
-            font-weight: 600;
-            transition: color 0.3s ease;
-        }
-
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-        }
-
-        .stat-card {
-            background: var(--secondary-bg);
-            color: var(--foreground);
-            padding: 20px;
-            border-radius: var(--radius);
-            text-align: center;
-            border: 1px solid var(--border);
-            transition: all 0.3s ease;
-        }
-
-        .stat-card:nth-child(1) {
-            background: var(--primary);
-            color: var(--primary-foreground);
-            border-color: var(--primary);
-        }
-
-        .stat-card:nth-child(2) {
-            background: var(--secondary-bg);
-            color: var(--foreground);
-        }
-
-        .stat-card:nth-child(3) {
-            background: var(--secondary-bg);
-            color: var(--foreground);
-        }
-
-        .stat-number {
-            font-size: 2.5em;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-
-        .stat-label {
-            font-size: 0.9em;
-            font-weight: 500;
-        }
-
-        .rooms-section {
-            background: var(--card-bg);
-            border-radius: var(--radius);
-            padding: 25px;
-            border: 1px solid var(--border);
-            margin-bottom: 20px;
-            transition: all 0.3s ease;
-        }
-
-        .rooms-section h2 {
-            color: var(--foreground);
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-weight: 600;
-            transition: color 0.3s ease;
-        }
-
-        .badge {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.8em;
-            font-weight: 600;
-        }
-
-        .badge.success {
-            background: var(--primary);
-            color: var(--primary-foreground);
-        }
-
-        .badge.danger {
-            background: var(--destructive);
-            color: var(--primary-foreground);
-        }
-
-        .room-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 15px;
-        }
-
-        .room-card {
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 15px;
-            transition: all 0.2s;
-            cursor: pointer;
-            background: var(--secondary-bg);
-        }
-
-        .room-card:hover {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 1px var(--primary);
-        }
-
-        .room-name {
-            font-size: 1.2em;
-            font-weight: 600;
-            color: var(--foreground);
-            margin-bottom: 10px;
-            transition: color 0.3s ease;
-        }
-
-        .room-info {
-            font-size: 0.9em;
-            color: var(--muted-foreground);
-            transition: color 0.3s ease;
-        }
-
-        .room-info .label {
-            font-weight: 500;
-            color: var(--foreground);
-            transition: color 0.3s ease;
-        }
-
-        .next-class {
-            margin-top: 10px;
-            padding: 10px;
-            background: rgba(59, 130, 246, 0.15);
-            border-left: 3px solid var(--primary);
-            border-radius: var(--radius);
-            font-size: 0.85em;
-            color: var(--foreground);
-        }
-
-        body.dark-mode .next-class {
-            background: rgba(96, 165, 250, 0.15);
-        }
-
-        .current-class {
-            margin-top: 10px;
-            padding: 10px;
-            background: rgba(239, 68, 68, 0.1);
-            border-left: 3px solid var(--destructive);
-            border-radius: var(--radius);
-            font-size: 0.85em;
-            color: var(--foreground);
-        }
-
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: var(--muted-foreground);
-            font-size: 1.2em;
-            background: var(--card-bg);
-            border-radius: var(--radius);
-            border: 1px solid var(--border);
-            transition: all 0.3s ease;
-        }
-
-        .error {
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid var(--destructive);
-            padding: 15px;
-            border-radius: var(--radius);
-            color: var(--destructive);
-            margin-top: 15px;
-        }
-
-        .room-free-text {
-            color: var(--primary);
-            font-weight: 600;
-        }
-
-        @media (max-width: 768px) {
-            .search-form {
-                grid-template-columns: 1fr;
-            }
-
-            .header-logo {
-                max-width: 280px;
-            }
-
-            .dark-mode-toggle {
-                position: static;
-                margin-bottom: 15px;
-                width: 100%;
-                justify-content: center;
-            }
-
-            .room-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
+    <script src="/static/theme.js"></script>
+    <link rel="stylesheet" href="/static/app.css">
+    <script src="/static/app.js" defer></script>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <button class="dark-mode-toggle" id="darkModeToggle">
-                <span id="darkModeIcon">🌙</span>
-                <span id="darkModeText">Dark Mode</span>
-            </button>
-            <img src="/static/images/njitemptyroomfinderlogo.png" alt="NJIT Empty Room Finder" class="header-logo">
-            <p>Find available classrooms at New Jersey Institute of Technology</p>
-        </div>
-
-        <div class="search-card">
-            <form id="searchForm" class="search-form">
-                <div class="form-group">
-                    <label for="daySelect">Day of Week</label>
-                    <select id="daySelect" required>
-                        <option value="">Select a day</option>
-                        <option value="Monday">Monday</option>
-                        <option value="Tuesday">Tuesday</option>
-                        <option value="Wednesday">Wednesday</option>
-                        <option value="Thursday">Thursday</option>
-                        <option value="Friday">Friday</option>
-                        <option value="Saturday">Saturday</option>
-                        <option value="Sunday">Sunday</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="timeInput">Time</label>
-                    <input type="time" id="timeInput" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="buildingSelect">Building (Optional)</label>
-                    <select id="buildingSelect">
-                        <option value="">All Buildings</option>
-                    </select>
-                </div>
-
-                <button type="submit" class="btn">Find Rooms</button>
-            </form>
-        </div>
-
-        <div id="loading" class="loading" style="display: none;">
-            Searching for available rooms...
-        </div>
-
-        <div id="error" class="error" style="display: none;"></div>
-
-        <div id="results" class="results">
-            <div class="summary">
-                <h2>Summary</h2>
-                <div class="stats">
-                    <div class="stat-card">
-                        <div class="stat-number" id="totalRooms">0</div>
-                        <div class="stat-label">Total Rooms</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number" id="availableRooms">0</div>
-                        <div class="stat-label">Available</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number" id="occupiedRooms">0</div>
-                        <div class="stat-label">Occupied</div>
-                    </div>
-                </div>
+    <main class="app-shell">
+        <header class="topbar">
+            <div class="brand">
+                <img src="/static/images/njitemptyroomfinderlogo.png" alt="NJIT Empty Room Finder">
+                <h1 class="sr-only">NJIT Empty Room Finder</h1>
             </div>
-
-            <div id="availableSection" class="rooms-section">
-                <h2>
-                    <span>Available Rooms</span>
-                    <span class="badge success" id="availableBadge">0</span>
-                </h2>
-                <div id="availableGrid" class="room-grid"></div>
+            <div class="topbar-actions">
+                <div class="data-status" id="dataStatus" aria-live="polite">
+                    <span class="status-dot"></span>
+                    <span id="termLabel">Loading schedule</span>
+                </div>
+                <button class="icon-button" id="themeToggle" type="button" aria-label="Switch color mode" title="Switch color mode">
+                    <svg class="moon-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8Z"/></svg>
+                    <svg class="sun-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"/></svg>
+                </button>
             </div>
+        </header>
 
-            <div id="occupiedSection" class="rooms-section" style="display: none;">
-                <h2>
-                    <span>Occupied Rooms</span>
-                    <span class="badge danger" id="occupiedBadge">0</span>
-                </h2>
-                <div id="occupiedGrid" class="room-grid"></div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // Dark Mode Toggle
-        const darkModeToggle = document.getElementById('darkModeToggle');
-        const darkModeIcon = document.getElementById('darkModeIcon');
-        const darkModeText = document.getElementById('darkModeText');
-        const body = document.body;
-
-        // Check for saved dark mode preference
-        const isDarkMode = localStorage.getItem('darkMode') === 'true';
-        if (isDarkMode) {
-            body.classList.add('dark-mode');
-            darkModeIcon.textContent = '☀️';
-            darkModeText.textContent = 'Light Mode';
-        }
-
-        darkModeToggle.addEventListener('click', () => {
-            body.classList.toggle('dark-mode');
-            const isDark = body.classList.contains('dark-mode');
-
-            // Update button
-            darkModeIcon.textContent = isDark ? '☀️' : '🌙';
-            darkModeText.textContent = isDark ? 'Light Mode' : 'Dark Mode';
-
-            // Save preference
-            localStorage.setItem('darkMode', isDark);
-        });
-
-        const form = document.getElementById('searchForm');
-        const results = document.getElementById('results');
-        const loading = document.getElementById('loading');
-        const error = document.getElementById('error');
-
-        // Set default time to current time
-        const now = new Date();
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        document.getElementById('timeInput').value = `${hours}:${minutes}`;
-
-        // Set default day to current day
-        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        const currentDay = days[now.getDay()];
-        document.getElementById('daySelect').value = currentDay;
-
-        // Load buildings list
-        async function loadBuildings() {
-            try {
-                const response = await fetch('/api/buildings');
-                const data = await response.json();
-                const buildingSelect = document.getElementById('buildingSelect');
-
-                data.buildings.forEach(building => {
-                    const option = document.createElement('option');
-                    option.value = building;
-                    option.textContent = building;
-                    buildingSelect.appendChild(option);
-                });
-            } catch (err) {
-                console.error('Error loading buildings:', err);
-            }
-        }
-
-        // Load buildings on page load
-        loadBuildings();
-
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            const day = document.getElementById('daySelect').value;
-            const time = document.getElementById('timeInput').value;
-            const building = document.getElementById('buildingSelect').value;
-
-            if (!day || !time) {
-                showError('Please select both day and time');
-                return;
-            }
-
-            loading.style.display = 'block';
-            results.classList.remove('show');
-            error.style.display = 'none';
-
-            try {
-                const requestBody = { day, time };
-                if (building) {
-                    requestBody.building = building;
-                }
-
-                const response = await fetch('/api/available-rooms', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(requestBody)
-                });
-
-                if (!response.ok) {
-                    throw new Error('Failed to fetch data');
-                }
-
-                const data = await response.json();
-                displayResults(data);
-
-            } catch (err) {
-                showError('Error fetching room data. Please try again.');
-                console.error(err);
-            } finally {
-                loading.style.display = 'none';
-            }
-        });
-
-        function displayResults(data) {
-            // Update summary stats
-            document.getElementById('totalRooms').textContent = data.summary.total_rooms;
-            document.getElementById('availableRooms').textContent = data.summary.available;
-            document.getElementById('occupiedRooms').textContent = data.summary.occupied;
-
-            // Update badges
-            document.getElementById('availableBadge').textContent = data.summary.available;
-            document.getElementById('occupiedBadge').textContent = data.summary.occupied;
-
-            // Display available rooms
-            const availableGrid = document.getElementById('availableGrid');
-            availableGrid.innerHTML = '';
-
-            if (data.available_rooms.length === 0) {
-                availableGrid.innerHTML = '<p style="color: #666;">No rooms available at this time.</p>';
-            } else {
-                data.available_rooms.forEach(room => {
-                    const card = createRoomCard(room, true);
-                    availableGrid.appendChild(card);
-                });
-            }
-
-            // Display occupied rooms
-            const occupiedGrid = document.getElementById('occupiedGrid');
-            const occupiedSection = document.getElementById('occupiedSection');
-            occupiedGrid.innerHTML = '';
-
-            if (data.occupied_rooms.length > 0) {
-                occupiedSection.style.display = 'block';
-                data.occupied_rooms.forEach(room => {
-                    const card = createRoomCard(room, false);
-                    occupiedGrid.appendChild(card);
-                });
-            } else {
-                occupiedSection.style.display = 'none';
-            }
-
-            results.classList.add('show');
-        }
-
-        function createRoomCard(room, isAvailable) {
-            const card = document.createElement('div');
-            card.className = 'room-card';
-
-            const roomName = document.createElement('div');
-            roomName.className = 'room-name';
-            roomName.textContent = room.room;
-            card.appendChild(roomName);
-
-            if (isAvailable) {
-                if (room.next_class) {
-                    const nextClass = document.createElement('div');
-                    nextClass.className = 'next-class';
-                    nextClass.innerHTML = `
-                        <div style="font-weight: 600; margin-bottom: 5px;">Next Class:</div>
-                        <div>${room.next_class.course}</div>
-                        <div style="margin-top: 5px;">
-                            <strong>${room.next_class.start_time}</strong> - ${room.next_class.end_time}
+        <div class="workspace">
+            <aside class="control-panel">
+                <div class="control-scroll workspace-scrollbar workspace-scrollbar-left">
+                    <div class="control-content">
+                        <div class="panel-heading">
+                            <h2>Find a room</h2>
+                            <button type="button" class="secondary-button compact-button" id="useNowButton">Use current time</button>
                         </div>
-                    `;
-                    card.appendChild(nextClass);
-                } else {
-                    const info = document.createElement('div');
-                    info.className = 'room-info';
-                    info.innerHTML = '<div class="room-free-text">✓ Free for the rest of the day</div>';
-                    card.appendChild(info);
-                }
-            } else {
-                const currentClass = document.createElement('div');
-                currentClass.className = 'current-class';
-                currentClass.innerHTML = `
-                    <div style="font-weight: 600; margin-bottom: 5px;">Current Class:</div>
-                    <div>${room.current_class.course}</div>
-                    <div style="margin-top: 5px;">
-                        <strong>${room.current_class.start_time}</strong> - ${room.current_class.end_time}
+
+                        <form id="searchForm" novalidate>
+                            <fieldset class="control-section">
+                                <legend>Day</legend>
+                                <div class="day-picker" id="dayPicker" aria-label="Day of week">
+                                    <button type="button" data-day="Monday" aria-label="Monday">M</button>
+                                    <button type="button" data-day="Tuesday" aria-label="Tuesday">T</button>
+                                    <button type="button" data-day="Wednesday" aria-label="Wednesday">W</button>
+                                    <button type="button" data-day="Thursday" aria-label="Thursday">R</button>
+                                    <button type="button" data-day="Friday" aria-label="Friday">F</button>
+                                    <button type="button" data-day="Saturday" aria-label="Saturday">S</button>
+                                    <button type="button" data-day="Sunday" aria-label="Sunday">U</button>
+                                </div>
+                                <input type="hidden" id="dayInput" required>
+                            </fieldset>
+
+                            <div class="control-section two-column-controls">
+                                <label class="field-label" for="timeInput">
+                                    <span>Start time</span>
+                                    <input type="time" id="timeInput" required>
+                                </label>
+                                <label class="field-label" for="durationSelect">
+                                    <span>Need it for</span>
+                                    <select id="durationSelect">
+                                        <option value="30">30 minutes</option>
+                                        <option value="60" selected>1 hour</option>
+                                        <option value="90">1.5 hours</option>
+                                        <option value="120">2 hours</option>
+                                        <option value="180">3 hours</option>
+                                    </select>
+                                </label>
+                            </div>
+
+                            <fieldset class="control-section">
+                                <legend>Location</legend>
+                                <label class="field-label" for="buildingSelect">
+                                    <span>Building</span>
+                                    <select id="buildingSelect">
+                                        <option value="">All buildings</option>
+                                    </select>
+                                </label>
+                                <label class="field-label" for="roomQuery">
+                                    <span>Room</span>
+                                    <input type="search" id="roomQuery" placeholder="For example, CKB 214" autocomplete="off">
+                                </label>
+                            </fieldset>
+
+                            <fieldset class="control-section">
+                                <legend>Order</legend>
+                                <label class="field-label" for="sortSelect">
+                                    <span class="sr-only">Sort available rooms</span>
+                                    <select id="sortSelect">
+                                        <option value="longest">Longest availability</option>
+                                        <option value="soonest">Next class soonest</option>
+                                        <option value="room">Room number</option>
+                                    </select>
+                                </label>
+                            </fieldset>
+
+                            <div class="notice" id="sourceNotice">
+                                Availability is based on scheduled classes. Events, closures, and reservations may not appear here.
+                            </div>
+                        </form>
                     </div>
-                `;
-                card.appendChild(currentClass);
-            }
+                </div>
+                <div class="search-footer">
+                    <div class="selection-summary" id="selectionSummary">Choose a day and time</div>
+                    <button type="submit" form="searchForm" class="primary-button" id="searchButton">
+                        <span>Show available rooms</span>
+                        <span class="button-spinner" aria-hidden="true"></span>
+                    </button>
+                </div>
+            </aside>
 
-            return card;
-        }
+            <section class="results-panel" aria-labelledby="resultsTitle">
+                <div class="results-toolbar">
+                    <div class="results-heading">
+                        <h2 id="resultsTitle">Available rooms</h2>
+                        <p id="querySummary">Checking the current schedule…</p>
+                    </div>
+                    <div class="result-tabs" role="tablist" aria-label="Room status">
+                        <button type="button" class="active" data-result-tab="available" role="tab" aria-selected="true" aria-controls="roomGrid">
+                            Available <span id="availableTabCount">0</span>
+                        </button>
+                        <button type="button" data-result-tab="unavailable" role="tab" aria-selected="false" aria-controls="roomGrid">
+                            Unavailable <span id="unavailableTabCount">0</span>
+                        </button>
+                    </div>
+                </div>
 
-        function showError(message) {
-            error.textContent = message;
-            error.style.display = 'block';
-        }
-    </script>
+                <div class="stats-bar" id="statsBar" aria-label="Search summary">
+                    <div><strong id="totalRooms">0</strong><span>rooms checked</span></div>
+                    <div><strong id="availableRooms">0</strong><span>available</span></div>
+                    <div><strong id="occupiedRooms">0</strong><span>in use</span></div>
+                    <div><strong id="startsSoonRooms">0</strong><span>starts soon</span></div>
+                </div>
+
+                <div class="results-scroll workspace-scrollbar">
+                    <div class="loading-state" id="loadingState">
+                        <span class="large-spinner"></span>
+                        <p>Checking rooms…</p>
+                    </div>
+                    <div class="error-state" id="errorState" hidden>
+                        <h3>Rooms could not be loaded</h3>
+                        <p id="errorMessage">Try the search again.</p>
+                    </div>
+                    <div class="empty-state" id="emptyState" hidden>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21h18M5 21V3h14v18M9 8h2M9 12h2M9 16h2M15 8h.01M15 12h.01M15 16h.01"/></svg>
+                        <h3 id="emptyTitle">No matching rooms</h3>
+                        <p id="emptyMessage">Try another building, time, or shorter duration.</p>
+                    </div>
+                    <div class="room-grid" id="roomGrid" hidden></div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <dialog class="schedule-dialog" id="scheduleDialog">
+        <div class="dialog-header">
+            <div>
+                <p class="eyebrow" id="dialogSubtitle">Weekly schedule</p>
+                <h2 id="dialogRoomName">Room</h2>
+            </div>
+            <button type="button" class="icon-button" id="closeDialog" aria-label="Close room schedule">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+            </button>
+        </div>
+        <div class="dialog-body workspace-scrollbar" id="dialogSchedule"></div>
+    </dialog>
 </body>
 </html>
