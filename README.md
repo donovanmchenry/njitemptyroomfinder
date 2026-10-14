@@ -10,7 +10,7 @@ The app uses the current Schedule Pro course export, keeps one semester in its g
 - Filters by building or room name
 - Shows occupied rooms and rooms whose next class starts too soon
 - Opens a room's full weekly class schedule
-- Defaults to dark mode and adapts to desktop and mobile screens
+- Defaults to light mode and adapts to desktop and mobile screens
 - Refreshes its committed schedule data from Schedule Pro every four hours
 
 Availability is based on the published course schedule. Campus events, closures, reservations, and last-minute changes may not appear.
@@ -37,10 +37,15 @@ Point the builder at a checkout of Schedule Pro:
 ```bash
 python build_schedule_data.py \
   --source ../njitschedulepro/courseschedules \
+  --refresh-config data/schedule_refresh.json \
   --output data/schedule_data.json
 ```
 
-The builder selects the highest NJIT Banner term code by default. To build a specific term, pass `--term 202690`.
+Automatic refreshes use the active semester in `data/schedule_refresh.json` (currently Fall 2026, `202690`). They reject exports that omit that semester, fall below the configured room/building minimums, or lose more than 20% of the existing semester's room or building coverage. A rejected refresh fails before writing the artifact, preserving the previous dataset.
+
+When changing semesters, update the active term and coverage minimums deliberately, then run a guarded refresh and review its data before deploying. If Schedule Pro only exports another semester, the current dataset remains available but cannot receive fresh class updates until an active-semester source is restored.
+
+For a one-off unguarded build, pass `--term 202690` without `--refresh-config`. With neither option, the builder selects the highest term code; the automated workflow always uses the guarded configuration.
 
 The scheduled GitHub Actions workflow clones Schedule Pro, rebuilds the artifact, and commits only when the source data changed.
 

@@ -1,6 +1,9 @@
 import csv
+import json
 
 import pytest
+
+from build_schedule_data import refresh_schedule
 
 from room_data import (
     build_schedule_dataset,
@@ -8,6 +11,8 @@ from room_data import (
     parse_clock,
     parse_days,
     parse_time_range,
+    save_schedule_dataset,
+    ScheduleDataError,
 )
 
 
@@ -145,3 +150,62 @@ def test_request_cannot_extend_past_midnight(dataset):
             start_min=parse_clock("23:30"),
             duration_minutes=60,
         )
+
+
+@pytest.fixture
+def refresh_files(tmp_path, dataset):
+    source = tmp_path / "upstream"
+    source.mkdir()
+    output = tmp_path / "schedule.json"
+    save_schedule_dataset(dataset, output)
+    config = tmp_path / "refresh.json"
+    config.write_text(json.dumps({
+        "active_term": "202690", "minimum_rooms": 1, "minimum_buildings": 1,
+    }))
+    return source, output, config
+
+
+def test_refresh_keeps_active_semester_when_newer_term_exists(refresh_files):
+    source, output, config = refresh_files
+    write_schedule(source / "courses.csv", [
+        row(), row(Location="CKB 102"), row(Location="GITC 1100"),
+        row(Term="202695", Location="CKB 999"),
+    ])
+    result = refresh_schedule(source, output, config)
+    assert result["metadata"]["term"] == "202690"
+    assert "CKB 999" not in result["rooms"]
+    assert json.loads(output.read_text()) == result
+
+
+def test_refresh_preserves_dataset_when_active_semester_is_missing(refresh_files):
+    source, output, config = refresh_files
+    original = output.read_bytes()
+    write_schedule(source / "courses.csv", [row(Term="202695")])
+    with pytest.raises(ScheduleDataError, match="202690 was not found"):
+        refresh_schedule(source, output, config)
+    assert output.read_bytes() == original
+
+
+@pytest.mark.parametrize("locations", [
+    ["CKB 101", "GITC 1100"],  # Too many rooms disappeared.
+    ["CKB 101", "CKB 102", "CKB 103"],  # Building coverage collapsed.
+])
+def test_refresh_rejects_coverage_loss(refresh_files, locations):
+    source, output, config = refresh_files
+    original = output.read_bytes()
+    write_schedule(source / "courses.csv", [row(Location=value) for value in locations])
+    with pytest.raises(ScheduleDataError, match="Refusing incomplete"):
+        refresh_schedule(source, output, config)
+    assert output.read_bytes() == original
+
+
+def test_refresh_checks_minimums_even_without_previous_dataset(refresh_files):
+    source, output, config = refresh_files
+    output.unlink()
+    config.write_text(json.dumps({
+        "active_term": "202690", "minimum_rooms": 150, "minimum_buildings": 14,
+    }))
+    write_schedule(source / "courses.csv", [row()])
+    with pytest.raises(ScheduleDataError, match="Refusing incomplete"):
+        refresh_schedule(source, output, config)
+    assert not output.exists()

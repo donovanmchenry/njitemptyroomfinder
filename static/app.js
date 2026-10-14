@@ -27,7 +27,6 @@ const elements = {
   useNow: document.querySelector("#useNowButton"),
   searchButton: document.querySelector("#searchButton"),
   themeToggle: document.querySelector("#themeToggle"),
-  termLabel: document.querySelector("#termLabel"),
   querySummary: document.querySelector("#querySummary"),
   selectionSummary: document.querySelector("#selectionSummary"),
   availableTab: document.querySelector('[data-result-tab="available"]'),
@@ -299,7 +298,6 @@ async function loadMetadata() {
   const buildingPayload = await buildingsResponse.json();
   state.metadata = metaPayload.metadata;
   state.buildings = buildingPayload.buildings;
-  elements.termLabel.textContent = state.metadata.term_name;
 
   state.buildings.forEach((building) => {
     const option = document.createElement("option");
