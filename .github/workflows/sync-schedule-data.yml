@@ -26,7 +26,9 @@ jobs:
         run: git clone --depth 1 https://github.com/donovanmchenry/njitschedulepro.git "$RUNNER_TEMP/njitschedulepro"
 
       - name: Build room schedule
-        run: python build_schedule_data.py --source "$RUNNER_TEMP/njitschedulepro/courseschedules" --refresh-config data/schedule_refresh.json
+        run: |
+          term=$(python -c 'import json; print(json.load(open("data/schedule_refresh.json"))["active_term"])')
+          python build_schedule_data.py --source "$RUNNER_TEMP/njitschedulepro/courseschedules/$term" --refresh-config data/schedule_refresh.json
 
       - name: Commit updated schedule
         run: |

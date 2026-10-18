@@ -36,7 +36,7 @@ Point the builder at a checkout of Schedule Pro:
 
 ```bash
 python build_schedule_data.py \
-  --source ../njitschedulepro/courseschedules \
+  --source ../njitschedulepro/courseschedules/202690 \
   --refresh-config data/schedule_refresh.json \
   --output data/schedule_data.json
 ```
@@ -47,7 +47,7 @@ When changing semesters, update the active term and coverage minimums deliberate
 
 For a one-off unguarded build, pass `--term 202690` without `--refresh-config`. With neither option, the builder selects the highest term code; the automated workflow always uses the guarded configuration.
 
-The scheduled GitHub Actions workflow clones Schedule Pro, rebuilds the artifact, and commits only when the source data changed.
+The scheduled GitHub Actions workflow clones Schedule Pro, reads the semester-specific export at `courseschedules/<active_term>`, rebuilds the artifact, and commits only when the source data changed. Schedule Pro exports Fall 2026 separately from its default catalog so a change to NJIT's default term cannot replace the active classroom schedule. When changing semesters, configure the matching upstream export as well.
 
 ## API
 
